@@ -2,6 +2,7 @@ mod migrator;
 mod db;
 mod entities;
 mod controllers;
+mod fairings;
 
 use rocket::{routes, launch, get, Responder, State};
 use rocket::http::Status;
@@ -35,6 +36,8 @@ async fn rocket() -> _ {
     Migrator::up(&db, None).await.unwrap();
 
     rocket::build()
+        .attach(fairings::cors::CORS)
+        .mount("/", routes![fairings::cors::options])
         .mount("/", routes![index])
         .mount("/auth", routes![
             controllers::auth::sing_in,
