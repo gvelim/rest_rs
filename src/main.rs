@@ -3,6 +3,7 @@ mod db;
 mod entities;
 mod controllers;
 mod fairings;
+mod auth;
 
 use rocket::{routes, launch, get, Responder, State};
 use rocket::http::Status;
@@ -48,6 +49,7 @@ async fn rocket() -> _ {
         .mount("/auth", routes![
             controllers::auth::sing_in,
             controllers::auth::sing_up,
+            controllers::auth::me
         ])
         .mount("/authors", routes![
             controllers::authors::index,

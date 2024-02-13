@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 use bcrypt::{DEFAULT_COST, verify};
 use jsonwebtoken::{EncodingKey, Header};
-use rocket::{post, Responder, State};
+use rocket::{get, post, Responder, State};
 use rocket::http::Status;
 use rocket::serde::Deserialize;
 use rocket::serde::json::Json;
@@ -9,6 +9,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Select}
 use sea_orm::ActiveValue::Set;
 use serde::Serialize;
 use crate::AppConfig;
+use crate::auth::AuthenticatedUser;
 use crate::entities::{user, prelude::User};
 use crate::entities::user::{Entity, Model};
 use super::{ErrorResponse, Response, SuccessResponse};
@@ -25,8 +26,8 @@ pub struct ResSignIn {
 }
 
 #[derive(Deserialize,Serialize)]
-struct Claims {
-    sub: i32,
+pub struct Claims {
+    pub(crate) sub: i32,
     role: String,
     exp: u64
 }
@@ -105,5 +106,12 @@ pub async fn sing_up(db: &State<DatabaseConnection>, req_sign_up: Json<ReqSignUp
 
     Ok(SuccessResponse(
         (Status::Created, "Account Created!".to_string())
+    ))
+}
+
+#[get("/me")]
+pub async fn me(db: &State<DatabaseConnection>, user: AuthenticatedUser) -> Response<String> {
+    Ok(SuccessResponse(
+        (Status::Ok, "My User ID is ".to_string() + user.id.to_string().as_str())
     ))
 }
