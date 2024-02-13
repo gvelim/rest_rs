@@ -11,3 +11,4 @@ sea-orm = { version = "0.12", features = [
     "sqlx-sqlite","runtime-async-std-native-tls","macros"
 ]}
 sea-orm-migration = "0.12"
+serde = { version = "1.0.196", features = ["derive"] }

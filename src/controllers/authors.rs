@@ -12,17 +12,17 @@ pub async fn create() -> Response<String> {
     todo!()
 }
 
-#[get("/id")]
-pub async fn show() -> Response<String> {
+#[get("/<id>")]
+pub async fn show(id: u32) -> Response<String> {
     todo!()
 }
 
-#[put("/id")]
-pub async fn update() -> Response<String> {
+#[put("/<id>")]
+pub async fn update(id: u32) -> Response<String> {
     todo!()
 }
 
-#[delete("/id")]
-pub async fn delete() -> Response<String> {
+#[delete("/<id>")]
+pub async fn delete(id: u32) -> Response<String> {
     todo!()
 }

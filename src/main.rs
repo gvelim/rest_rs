@@ -37,6 +37,7 @@ async fn rocket() -> _ {
 
     rocket::build()
         .attach(fairings::cors::CORS)
+        .manage(db)
         .mount("/", routes![fairings::cors::options])
         .mount("/", routes![index])
         .mount("/auth", routes![
