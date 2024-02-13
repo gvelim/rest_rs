@@ -12,12 +12,15 @@ use crate::controllers::SuccessResponse;
 use crate::migrator::Migrator;
 
 pub struct AppConfig {
-    db_database: String
+    db_database: String,
+    jwt_secret: String
 }
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            db_database: std::env::var("BOOKSTORE_DB_DATABASE").unwrap_or("db".to_string())
+            db_database: std::env::var("BOOKSTORE_DB_DATABASE").unwrap_or("db".to_string()),
+            jwt_secret: std::env::var("BOOKSTORE_JWT_SECRET")
+                .expect("Cannot find env variable BOOKSTORE_JWT_SECRET")
         }
     }
 }
@@ -29,8 +32,9 @@ fn index() -> controllers::Response<String> {
 
 #[launch]
 async fn rocket() -> _ {
-    let cfg = AppConfig::default();
+    dotenv::dotenv().ok();
 
+    let cfg = AppConfig::default();
     let db = db::connect(&cfg).await.unwrap();
     
     Migrator::up(&db, None).await.unwrap();
@@ -38,6 +42,7 @@ async fn rocket() -> _ {
     rocket::build()
         .attach(fairings::cors::CORS)
         .manage(db)
+        .manage(cfg)
         .mount("/", routes![fairings::cors::options])
         .mount("/", routes![index])
         .mount("/auth", routes![

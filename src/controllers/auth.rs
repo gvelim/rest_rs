@@ -1,11 +1,16 @@
+use std::time::SystemTime;
+use bcrypt::{DEFAULT_COST, verify};
+use jsonwebtoken::{EncodingKey, Header};
 use rocket::{post, Responder, State};
 use rocket::http::Status;
 use rocket::serde::Deserialize;
 use rocket::serde::json::Json;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Select};
 use sea_orm::ActiveValue::Set;
 use serde::Serialize;
+use crate::AppConfig;
 use crate::entities::{user, prelude::User};
+use crate::entities::user::{Entity, Model};
 use super::{ErrorResponse, Response, SuccessResponse};
 
 #[derive(Deserialize)]
@@ -19,10 +24,53 @@ pub struct ResSignIn {
     token: String
 }
 
-#[post("/sign-in", data="<req_sign_in>")]
-pub async fn sing_in(db: &State<DatabaseConnection>, req_sign_in: Json<ReqSignIn>) -> Response<ResSignIn> {
+#[derive(Deserialize,Serialize)]
+struct Claims {
+    sub: i32,
+    role: String,
+    exp: u64
+}
 
-    todo!()
+#[post("/sign-in", data="<req_sign_in>")]
+pub async fn sing_in(
+    db: &State<DatabaseConnection>,
+    cfg: &State<AppConfig>,
+    req_sign_in: Json<ReqSignIn>
+) -> Response<ResSignIn> {
+
+    let usr = match User::find()
+        .filter(user::Column::Email.eq(&req_sign_in.email))
+        .one(db.inner()).await? {
+        None => return Err(ErrorResponse(
+            (Status::Unauthorized, "Invalid credentials".to_string())
+        )),
+        Some(usr) => usr
+    };
+
+    if !verify(&req_sign_in.password, &usr.password).unwrap() {
+        return Err(ErrorResponse(
+            (Status::Unauthorized, "Invalid credentials".to_string())
+        ))
+    }
+
+    let claims = Claims {
+        sub: usr.id,
+        role: "user".to_string(),
+        exp: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() + 4 * 3600
+    };
+
+    let token = jsonwebtoken::encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(cfg.inner().jwt_secret.as_bytes())
+    ).unwrap();
+
+    Ok(SuccessResponse(
+        (Status::Ok, ResSignIn { token })
+    ))
 }
 
 #[derive(Deserialize)]
@@ -47,7 +95,7 @@ pub async fn sing_up(db: &State<DatabaseConnection>, req_sign_up: Json<ReqSignUp
 
     User::insert(user::ActiveModel {
         email: Set(req_sign_up.email.to_owned()),
-        password: Set(req_sign_up.password.to_owned()),
+        password: Set(bcrypt::hash(req_sign_up.password.to_owned(),DEFAULT_COST).unwrap()),
         first_name: Set(req_sign_up.firstname.to_owned()),
         last_name: Set(req_sign_up.lastname.to_owned()),
         ..Default::default()
