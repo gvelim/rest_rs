@@ -6,3 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rocket = { version = "0.5.0", features = ["json"]}
+sea-orm = { version = "0.12", features = [
+    "sqlx-sqlite","runtime-async-std-native-tls","macros"
+]}
+sea-orm-migration = "0.12"
