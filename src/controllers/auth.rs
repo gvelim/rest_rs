@@ -37,7 +37,7 @@ pub async fn sing_in(
     db: &State<DatabaseConnection>,
     cfg: &State<AppConfig>,
     req_sign_in: Json<ReqSignIn>
-) -> Response<ResSignIn> {
+) -> Response<Json<ResSignIn>> {
 
     let usr = match User::find()
         .filter(user::Column::Email.eq(&req_sign_in.email))
@@ -70,7 +70,7 @@ pub async fn sing_in(
     ).unwrap();
 
     Ok(SuccessResponse(
-        (Status::Ok, ResSignIn { token })
+        (Status::Ok, Json(ResSignIn { token }))
     ))
 }
 
@@ -109,9 +109,25 @@ pub async fn sing_up(db: &State<DatabaseConnection>, req_sign_up: Json<ReqSignUp
     ))
 }
 
+#[derive(Serialize,Deserialize)]
+struct ResMe {
+    id: u32,
+    email: String,
+    firstname: Option<String>,
+    lastname: Option<String>
+}
+
 #[get("/me")]
-pub async fn me(db: &State<DatabaseConnection>, user: AuthenticatedUser) -> Response<String> {
-    Ok(SuccessResponse(
-        (Status::Ok, "My User ID is ".to_string() + user.id.to_string().as_str())
-    ))
+pub async fn me(db: &State<DatabaseConnection>, user: AuthenticatedUser) -> Response<Json<ResMe>> {
+    let u = User::find_by_id(user.id)
+        .one(db.inner())
+        .await?
+        .unwrap();
+    let me = ResMe {
+        id: user.id as u32,
+        email: u.email,
+        firstname: u.first_name,
+        lastname: u.last_name,
+    };
+    Ok(SuccessResponse((Status::Ok, Json(me))))
 }
