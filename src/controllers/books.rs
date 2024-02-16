@@ -2,10 +2,11 @@ use rocket::{delete, get, post, put, State};
 use rocket::http::Status;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
-use sea_orm::{DatabaseConnection, EntityTrait, QueryOrder};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryOrder};
+use sea_orm::ActiveValue::Set;
 use crate::auth::AuthenticatedUser;
-use crate::controllers::{Response, SuccessResponse};
-use crate::entities::book;
+use crate::controllers::{ErrorResponse, Response, SuccessResponse};
+use crate::entities::{author, book};
 use crate::entities::prelude::Book;
 
 
@@ -48,14 +49,63 @@ pub async fn index(db: &State<DatabaseConnection>, _user: AuthenticatedUser) -> 
     ))
 }
 
-#[post("/")]
-pub async fn create() -> Response<String> {
-    todo!()
+#[derive(Deserialize)]
+struct ReqBook {
+    author_id: i32,
+    title: String,
+    cover: String,
+    year: String,
+}
+
+#[post("/", data="<req_book>")]
+pub async fn create(
+    db: &State<DatabaseConnection>,
+    user: AuthenticatedUser,
+    req_book: Json<ReqBook>
+) -> Response<Json<ResBook>> {
+    let book = book::ActiveModel {
+        user_id: Set(user.id),
+        author_id: Set(req_book.author_id),
+        title: Set(req_book.title.to_owned()),
+        cover: Set(req_book.cover.to_owned()),
+        year: Set(req_book.year.to_owned()),
+        ..Default::default()
+    }
+        .insert(db.inner())
+        .await?;
+
+    Ok(SuccessResponse(
+        (Status::Created, Json(ResBook{
+            id: book.id,
+            author_id: book.author_id,
+            cover: book.cover.to_owned(),
+            title: book.title.to_owned(),
+            year: book.year
+        }))
+    ))
 }
 
 #[get("/<id>")]
-pub async fn show(id: u32) -> Response<String> {
-    todo!()
+pub async fn show(
+    db: &State<DatabaseConnection>,
+    user: AuthenticatedUser,
+    id: i32
+) -> Response<Json<ResBook>> {
+    let book = match book::Entity::find_by_id(id).one(db.inner()).await? {
+        None => return Err(ErrorResponse(
+            (Status::NotFound, format!("Book with id[{id}] was not found"))
+        )),
+        Some(a) => a
+    };
+    Ok(SuccessResponse(
+        (Status::Found, Json(ResBook{
+            id: book.id,
+            author_id: book.author_id,
+            cover: book.cover.to_owned(),
+            title: book.title.to_owned(),
+            year: book.year
+        }))
+    ))
 }
 
 #[put("/<id>")]
