@@ -3,10 +3,12 @@ use rocket::http::Status;
 use rocket::serde::{Deserialize,Serialize, json::Json};
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use sea_orm::ActiveValue::Set;
+use sea_orm::prelude::DateTimeUtc;
 use crate::auth::AuthenticatedUser;
-use crate::controllers::{Response, SuccessResponse, ErrorResponse};
-use crate::entities::author;
+use crate::controllers::{Response, SuccessResponse, ErrorResponse, auth};
+use crate::entities::{prelude::*, author};
 use crate::entities::author::Model;
+use crate::entities::book::ActiveModel;
 
 #[derive(Serialize,Deserialize)]
 struct ResAuthor {
@@ -100,9 +102,36 @@ pub async fn show(
     ))
 }
 
-#[put("/<id>")]
-pub async fn update(id: u32) -> Response<String> {
-    todo!()
+#[put("/<id>", data="<req_author>")]
+pub async fn update(
+    db: &State<DatabaseConnection>,
+    id: i32,
+    authenticated_user: AuthenticatedUser,
+    req_author: Json<ReqAuthor>
+) -> Response<Json<ResAuthor>>
+{
+    let mut author: author::ActiveModel = match Author::find_by_id(id).one(db.inner()).await? {
+        Some(a) => a.into(),
+        None => return Err(ErrorResponse(
+            (Status::NotFound, format!("Couldn't find author with id[{id}]").to_string())
+        ))
+    };
+    author.first_name = Set(req_author.firstname.to_owned());
+    author.last_name = Set(req_author.lastname.to_owned());
+    author.bio = Set(req_author.bio.to_owned());
+    author.updated_at = Set(Some(DateTimeUtc::from(std::time::SystemTime::now()).to_string()));
+
+    let author = author.update(db.inner()).await?;
+
+    Ok(SuccessResponse(
+        (Status::Ok, Json(ResAuthor{
+            id: author.id,
+            user_id: author.user_id,
+            first_name: author.first_name,
+            last_name: author.last_name,
+            bio: author.bio,
+        }))
+    ))
 }
 
 #[delete("/<id>")]
